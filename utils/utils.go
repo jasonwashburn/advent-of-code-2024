@@ -1,17 +1,23 @@
 package utils
 
 import (
-	"fmt"
+	"log"
 	"os"
 )
 
-func ReadInput(day int64) string {
-	filename := fmt.Sprintf("../day%02d/input.txt", day)
+func ReadInput(filename string) string {
 	contents, err := os.ReadFile(filename)
-	fmt.Printf("Contents: \n%b", contents)
 	if err != nil {
-		fmt.Errorf("Unable to read from file: %s", filename)
+		log.Fatalf("Unable to read from file: %s", filename)
 	}
 	output := string(contents)
 	return output
+}
+
+func Abs(num int) int {
+	if num < 0 {
+		return -num
+	} else {
+		return num
+	}
 }
