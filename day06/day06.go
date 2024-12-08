@@ -3,6 +3,7 @@ package day06
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/jasonwashburn/advent-of-code-2024/utils"
@@ -24,16 +25,40 @@ func Solve() {
 	input := utils.ReadInput("./day06/input.txt")
 	grid, startPosition := createGrid(input)
 
-	visited := walkGrid(grid, startPosition)
-	fmt.Println("Unique positions visited: ", len(visited))
+	visited, _ := walkGrid(grid, startPosition)
+	fmt.Println("Part 1 - Unique positions visited: ", len(visited))
+	fmt.Println("-------------------------------------------------")
 
 	// Part 2
 
 	// Loop through each of the unique positions from before
-	// and place an obstacle at that location then try to walk again
-	// record any positions which cause a loop,
-	// then switch the grid back to original,
-	// and go to next position
+	var loopCausingPositions []string
+	loopCount := 0
+	for strPos := range visited {
+		loopCount += 1
+		fmt.Printf("Starting loop %04d of %04d\n", loopCount, len(visited))
+		pos := strings.Split(strPos, ",")
+		rowIndex, err := strconv.Atoi(pos[0])
+		if err != nil {
+			log.Panic(err)
+		}
+		colIndex, err := strconv.Atoi(pos[1])
+		if err != nil {
+			log.Panic(err)
+		}
+
+		// ...and place an obstacle at that location then try to walk again
+		grid[rowIndex][colIndex] = "O"
+		_, err = walkGrid(grid, startPosition)
+		// record any positions which cause a loop,
+		if err != nil {
+			loopCausingPositions = append(loopCausingPositions, strPos)
+		}
+		// then switch the grid back to original,
+		grid[rowIndex][colIndex] = "."
+		// and go to next position
+	}
+	fmt.Println("Part 2 - Number of blocking positions found: ", len(loopCausingPositions))
 }
 
 func createGrid(input string) (grid [][]string, startPosition []int) {
@@ -51,7 +76,6 @@ func createGrid(input string) (grid [][]string, startPosition []int) {
 	}
 	// replace starting position with a "."
 	grid[startPosition[0]][startPosition[1]] = "."
-	fmt.Println("NumRows: ", len(grid), " NumCols: ", len(grid[0]))
 	return
 }
 
@@ -70,14 +94,13 @@ type Position struct {
 	colIndex int
 }
 
-func walkGrid(grid [][]string, startPosition []int) map[string]bool {
+func walkGrid(grid [][]string, startPosition []int) (positions map[string]string, err error) {
 	direction := Up
 	currentPosition := Position{rowIndex: startPosition[0], colIndex: startPosition[1]}
 	var newPosition Position
-
-	positions := make(map[string]bool)
+	positions = make(map[string]string)
 	stringPos := fmt.Sprintf("%d,%d", newPosition.rowIndex, newPosition.colIndex)
-	positions[stringPos] = true
+	positions[stringPos] = Up
 	for {
 		switch direction {
 		case Up:
@@ -92,13 +115,13 @@ func walkGrid(grid [][]string, startPosition []int) map[string]bool {
 			log.Panicf("invalid direction detected at beginning of loop: %s", direction)
 		}
 		if !positionInsideGrid(grid, newPosition) {
-			fmt.Println("Exiting from: ", currentPosition, " while moving ", direction)
+			// fmt.Println("Exiting from: ", currentPosition, " while moving ", direction)
 			break
 		}
 
 		// check to see what's in the newPosition
 		newPositionContent := grid[newPosition.rowIndex][newPosition.colIndex]
-		if newPositionContent == "#" {
+		if newPositionContent == "#" || newPositionContent == "O" {
 			// if it's a #, turn right, stay in curent position and continue loop
 			var err error
 			direction, err = turnRight(direction)
@@ -111,13 +134,19 @@ func walkGrid(grid [][]string, startPosition []int) map[string]bool {
 			// also change content to an X so we can track where we've been
 			currentPosition = newPosition
 			stringPos := fmt.Sprintf("%d,%d", newPosition.rowIndex, newPosition.colIndex)
-			positions[stringPos] = true
+			// check to see if we're looping (same position, same direction as before)
+			if positions[stringPos] == direction {
+				// we've been here before, going in same direction
+				return positions, fmt.Errorf("loop detected at %s, while heading %s", stringPos, direction)
+			}
+			// otherwise, keep truckin...
+			positions[stringPos] = direction
 		} else {
 			log.Panic("encountered unexpected content: ", newPositionContent)
 		}
 
 	}
-	return positions
+	return positions, nil
 }
 
 func turnRight(dir string) (string, error) {
